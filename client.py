@@ -1,11 +1,14 @@
 import json
+import os
 import re
 import requests
 import time
 import wikipedia
 
+from markov import Generator as Markov
 
 wikipedia.set_lang('fr')
+
 
 class Wikiclient(object):
     '''
@@ -93,7 +96,7 @@ class Wikiclient(object):
 
         Call api_parse for each name in pages_list and check if the page concern a person.
         If so, also checks if the page contains a 'Biographie' section.
-        Than gather Biographie from section and subsections in exists or directly from page content.
+        Than gather Biographie from section and subsections if exists or directly from page content.
         '''
 
         if debug:
@@ -189,8 +192,8 @@ class Wikiclient(object):
         sub_sections_regex = r'^([' + re.escape(str(section_number)) + r']){1}([.]{1}[\d]*)*$'
         for section in page['parse']['sections']:
             if re.match(sub_sections_regex, section['number']):
-                section_name = re.sub(r'<.*?>', '', section['line'])                # small clean of sections names (delete html)
-                section_name = re.sub(r'(&nbsp;)', ' ', section_name)               # small clean of sections names (delete '&nbsp;')
+                section_name = re.sub(r'<.*?>', '', section['line'])                
+                section_name = re.sub(r'(&nbsp;)', ' ', section_name)               
                 biography_sections.append(section_name)
 
         title = page['parse']['title']
@@ -211,7 +214,7 @@ class Wikiclient(object):
         with open(f'bio_files/{self.first_name}_Biographies.txt', 'a', encoding='utf-8') as f:
             if self.biography:
                 f.write(self.biography)
-                f.write('\n\n')
+                f.write('\n===============================================================================================================\n')
                 self.biography = ''
         if debug:
             print("--- Temps d'execution pour get_biography_section_and_sub_sections() : %s secondes ---" % (time.time() - start_time))
@@ -274,7 +277,7 @@ class Wikiclient(object):
                     section_content = wpage.section(section['line'])
                     if section_content is not None:
                         f.write(section_content)
-                f.write('\n\n')
+                f.write('\n===============================================================================================================\n')
 
         elif debug:
             print('/!\ La page ne porte pas exactement ce nom')
@@ -294,37 +297,54 @@ class Wikiclient(object):
 
         if debug:
             start_time = time.time()
-            print('>>> Function get_all_biographies <<<')
-            self.get_pages(name=self.first_name, debug=True) # disable for rapidity tests
-            print('number of pages :', len(self.pages_list))
-            go_on = input('Doit-on récupérer tout ça ? (oui/non) --- ').lower()
-            accept = ['oui', 'o', 'ok']
-            if go_on in accept:
-                self.gather_biographies(debug=True)
+            if not os.path.exists(f'bio_files/{self.first_name}_Biographies.txt'):
+                print('>>> Function get_all_biographies <<<')
+                self.get_pages(name=self.first_name, debug=True) # disable for rapidity tests
+                print('number of pages :', len(self.pages_list))
+                go_on = input('Doit-on récupérer tout ça ? (oui/non) --- ').lower()
+                accept = ['oui', 'o', 'ok']
+                if go_on in accept:
+                    self.gather_biographies(debug=True)
+                else:
+                    save_list = input('Sauvegarder la liste de pages dans un fichier ? (oui/non) --- ').lower()
+                    if save_list in accept:
+                        with open(f'pages_lists/{self.first_name}s_list.txt', 'w', encoding='utf-8') as f:
+                            for page in self.pages_list:
+                                f.write(page)
+                                f.write('\n')
             else:
-                save_list = input('Sauvegarder la liste de pages dans un fichier ? (oui/non) --- ').lower()
-                if save_list in accept:
-                    with open(f'pages_lists/{self.first_name}s_list.txt', 'w', encoding='utf-8') as f:
-                        for page in self.pages_list:
-                            f.write(page)
-                            f.write('\n')
+                print('Already in the database')
             print("--- Temps d'execution total : %s secondes ---" % (time.time() - start_time))
         else:
-            start_time = time.time()
-            self.get_pages(name=self.first_name) # disable for rapidity tests
-            print('number of pages :', len(self.pages_list))
-            go_on = input('Doit-on récupérer tout ça ? (oui/non) --- ').lower()
-            accept = ['oui', 'o', 'ok']
-            if go_on in accept:
+            start_time = time.time() # need to delete
+            if not os.path.exists(f'bio_files/{self.first_name}_Biographies.txt'):
+                self.get_pages(name=self.first_name) # disable for rapidity tests
                 self.gather_biographies()
-            print("--- Temps d'execution total : %s secondes ---" % (time.time() - start_time))
+            else: # need to delete
+                print('Already in the database') # need to delete
+            print("--- Temps d'execution total : %s secondes ---" % (time.time() - start_time)) # need to delete
 
 
 if __name__ == '__main__':
+    # Gather Biographies
     first_name = input('Quel Prénom souhaiter vous rechercher ?\n').capitalize()
     Wikiclient(first_name).get_all_biographies(debug=False)
-    
 
+    # Generate Biography
+    print(f'Quelle méthode voulez-vous utiliser pour générer la biographie ?')
+    print('- 1 - Chaines de Markov')
+
+    # chosen_method = int(input()) - 1
+    chosen_method = 0
+
+    if chosen_method == 0:
+        bio = Markov(order=4, filename=first_name, length=100)
+        bio.proceed()
+
+    else:
+        print("Cette méthode n'existe pas")
+
+#==============================================================================================================================================        
     # # Rapidity Tests
     # client = Wikiclient('Fernand Augereau')
     # client.pages_list = ['Fernand Augereau', 'Fernand Melgar', 'Fernandos', 'Hôpital Fernand-Widal']

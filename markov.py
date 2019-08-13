@@ -1,3 +1,4 @@
+import json
 import random
 
 
@@ -49,32 +50,52 @@ class Generator():
         nb_states = len(self.graph.keys())
         total_options = 0
 
-        for key in gen.graph.keys():
-            total_options += len(gen.graph[key])
+        for key in self.graph.keys():
+            total_options += len(self.graph[key])
 
         avg = total_options / nb_states
         if avg > 2:
-            result = f"Nombre moyen d'options par state : {avg} - Bon"
+            result = f"Bon"
+            # result = f"Nombre moyen d'options par state : {avg} - Bon"
         elif avg > 1.5:
-            result = f"Nombre moyen d'options par state : {avg} - Correct"
+            result = f"Correct"
+            # result = f"Nombre moyen d'options par state : {avg} - Correct"
         elif avg > 1.1:
-            result = f"Nombre moyen d'options par state : {avg} - Très limite"
+            result = f"Très limite"
+            # result = f"Nombre moyen d'options par state : {avg} - Très limite"
         else:
-            result = f"Nombre moyen d'options par state : {avg} - Order trop élevé !"
+            result = f"Order trop élevé !"
+            # result = f"Nombre moyen d'options par state : {avg} - Order trop élevé !"
         return result
+
 
 
     def proceed(self):
         '''
         "Master function" that calls the rest of the class.
         '''
-
         self.train(filename=self.filename)
-        print(f'Order : {self.order}\nFilename : {self.filename}\nLength : {self.length}')
-        print(self.evaluate_order())
-        print('\n')
+        order_eval = self.evaluate_order()
+        
+        while order_eval not in ["Bon", "Correct"]:
+            self.order -= 1
+            self.group_size = self.order + 1
+            self.graph = {}
+            self.train(filename=self.filename)
+            order_eval = self.evaluate_order()
+
         print(self.generate(length=self.length))
+        print('choosen order : ', self.order) # need to delete
 
 if __name__ == '__main__':
-    gen = Generator(order=2, filename='Simon', length=100)
+    gen = Generator(order=4, filename='Simon', length=100)
     gen.proceed()
+    keys = [str(key) for key in gen.graph.keys()]
+    values = [value for value in gen.graph.values()]
+    print(keys[0], values[0])
+    dico = {}
+    for i in range(len(keys)):
+        dico[keys[i]] = values[i]
+    with open('devTests/graph.json', 'w') as f:
+        json.dump(dico, f, indent=4)
+
